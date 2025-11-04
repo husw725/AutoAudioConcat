@@ -16,7 +16,7 @@ def check_ffmpeg():
 def load_segments_from_folder(folder_path):
     """
     从指定目录加载所有音频片段信息
-    假设每个片段有相同名字的 .wav 或其他音频格式 和 .txt
+    支持 .wav、.flac、.mp3
     .txt 内容为 JSON 格式: {"start": float, "end": float, "speaker": str}
     """
     segments = []
@@ -35,25 +35,27 @@ def load_segments_from_folder(folder_path):
                     "end": info.get("end", 0),
                     "speaker": info.get("speaker", "")
                 })
-    # 按文件名（数字）排序
-    segments.sort(key=lambda x: int(x["id"]))
+    segments.sort(key=lambda x: int(x["id"]))  # 按数字文件名排序
     return segments
 
 def merge_continuous_segments(segments, gap_threshold):
     """
-    如果相邻片段的 (next.start - prev.end) <= gap_threshold
-    则拼接音频。
+    合并连续片段：
+    - 相邻文件名必须连续数字
+    - start - prev.end <= gap_threshold
     """
     merged = []
     if not segments:
         return merged
 
     current_group = [segments[0]]
-
     for i in range(1, len(segments)):
         prev = segments[i - 1]
         curr = segments[i]
-        if curr["start"] - prev["end"] <= gap_threshold:
+        # 文件名数字连续
+        prev_id = int(prev["id"])
+        curr_id = int(curr["id"])
+        if curr_id == prev_id + 1 and (curr["start"] - prev["end"] <= gap_threshold):
             current_group.append(curr)
         else:
             merged.append(current_group)
@@ -80,19 +82,20 @@ if not check_ffmpeg():
     st.error("❌ 未检测到 ffmpeg，请先安装 ffmpeg 并确保可执行文件在 PATH 中")
     st.stop()
 
-path = st.text_input("请输入文件夹路径：", value="")
+path = st.text_input("请输入输入文件夹路径：", value="")
+output_dir = st.text_input("请输入输出目录路径：", value=os.path.join(path, "merged_results"))
 gap_sec = st.number_input("最大允许间隔（秒）", value=2.0, min_value=0.0, step=0.5)
 
 if st.button("开始处理") and path:
-    all_results = []
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
 
     folders = [os.path.join(path, f) for f in os.listdir(path) if os.path.isdir(os.path.join(path, f))]
     if not folders:
         st.warning("未检测到子文件夹，请确认路径正确。")
     else:
         st.write(f"找到 {len(folders)} 个子文件夹")
-        output_dir = os.path.join(path, "merged_results")
-        os.makedirs(output_dir, exist_ok=True)
+        st.write(f"输出目录：{output_dir}")
 
         for folder in folders:
             st.subheader(f"📁 处理子目录：{os.path.basename(folder)}")
