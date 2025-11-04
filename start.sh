@@ -14,4 +14,4 @@ fi
 
 # 启动 Streamlit 应用
 echo "🚀 启动 Streamlit 应用中..."
-streamlit run "$APP_FILE" --server.port 8501 --server.address 0.0.0.0
+streamlit run "$APP_FILE" --server.port 7777 --server.address 0.0.0.0
