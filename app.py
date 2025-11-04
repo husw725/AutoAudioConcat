@@ -1,26 +1,36 @@
 import os
 import json
+import subprocess
 from pydub import AudioSegment
 import streamlit as st
 
+# ---------------- ffmpeg 检查 ----------------
+def check_ffmpeg():
+    try:
+        subprocess.run(["ffmpeg", "-version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+        return True
+    except Exception:
+        return False
+
+# ---------------- 音频处理函数 ----------------
 def load_segments_from_folder(folder_path):
     """
     从指定目录加载所有音频片段信息
-    假设每个片段有相同名字的 .wav 和 .txt
+    假设每个片段有相同名字的 .wav 或其他音频格式 和 .txt
     .txt 内容为 JSON 格式: {"start": float, "end": float, "speaker": str}
     """
     segments = []
     for fname in os.listdir(folder_path):
-        if fname.endswith(".wav"):
+        if fname.endswith((".wav", ".flac", ".mp3")):
             base = os.path.splitext(fname)[0]
-            wav_path = os.path.join(folder_path, fname)
+            audio_path = os.path.join(folder_path, fname)
             txt_path = os.path.join(folder_path, base + ".txt")
             if os.path.exists(txt_path):
                 with open(txt_path, "r", encoding="utf-8") as f:
                     info = json.load(f)
                 segments.append({
                     "id": base,
-                    "wav": wav_path,
+                    "audio": audio_path,
                     "start": info.get("start", 0),
                     "end": info.get("end", 0),
                     "speaker": info.get("speaker", "")
@@ -29,10 +39,9 @@ def load_segments_from_folder(folder_path):
     segments.sort(key=lambda x: int(x["id"]))
     return segments
 
-
 def merge_continuous_segments(segments, gap_threshold):
     """
-    如果相邻片段的 (next.start - prev.end) < gap_threshold
+    如果相邻片段的 (next.start - prev.end) <= gap_threshold
     则拼接音频。
     """
     merged = []
@@ -44,7 +53,6 @@ def merge_continuous_segments(segments, gap_threshold):
     for i in range(1, len(segments)):
         prev = segments[i - 1]
         curr = segments[i]
-        # 判断是否连续
         if curr["start"] - prev["end"] <= gap_threshold:
             current_group.append(curr)
         else:
@@ -53,17 +61,24 @@ def merge_continuous_segments(segments, gap_threshold):
     merged.append(current_group)
     return merged
 
-
 def combine_audio_segments(segment_group):
-    """将一个 segment_group 拼接为一条音频"""
+    """将一个 segment_group 拼接为一条音频（自动识别格式）"""
     combined = AudioSegment.empty()
     for seg in segment_group:
-        combined += AudioSegment.from_wav(seg["wav"])
+        path = seg["audio"]
+        try:
+            combined += AudioSegment.from_file(path)
+        except Exception as e:
+            st.error(f"❌ 无法解码文件 {path} ：{e}")
     return combined
 
-
 # ---------------- Streamlit UI ----------------
+st.set_page_config(page_title="连续语音拼接工具", layout="wide")
 st.title("🎧 连续语音拼接工具")
+
+if not check_ffmpeg():
+    st.error("❌ 未检测到 ffmpeg，请先安装 ffmpeg 并确保可执行文件在 PATH 中")
+    st.stop()
 
 path = st.text_input("请输入文件夹路径：", value="")
 gap_sec = st.number_input("最大允许间隔（秒）", value=2.0, min_value=0.0, step=0.5)
