@@ -4,6 +4,8 @@
 # 设置 Python 环境（可选，根据需要启用）
 # source venv/bin/activate
 
+git pull
+
 APP_FILE="app.py"
 
 # 检查文件是否存在
