@@ -89,7 +89,7 @@ if not check_ffmpeg():
 path = st.text_input("请输入输入文件夹路径：", value="")
 output_dir = st.text_input("请输入输出目录路径：", value=os.path.join(path, "merged_results"))
 gap_sec = st.number_input("最大允许间隔（秒）", value=2.0, min_value=0.0, step=0.5)
-min_duration_sec = st.number_input("忽略过短片段（秒，小于此值将跳过）", value=0.5, min_value=0.0, step=0.1)
+min_duration_sec = st.number_input("忽略过短片段（秒，小于此值将跳过）", value=0.3, min_value=0.1, step=0.05)
 
 if st.button("开始处理") and path:
     if not os.path.exists(output_dir):
